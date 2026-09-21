@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-dotenv
+pydantic-settings
+requests
+groq
+httpx
+PyJWT[crypto]
+python-json-logger
+email-validator
+botbuilder-core
+pytest

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MsTeamsSchema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "REPLACE_WITH_YOUR_TEAMS_APP_ID",
+  "packageName": "com.accessmate.teams",
+  "developer": {
+    "name": "AccessMate",
+    "websiteUrl": "https://your-domain.com",
+    "privacyUrl": "https://your-domain.com/privacy",
+    "termsOfUseUrl": "https://your-domain.com/terms"
+  },
+  "name": {
+    "short": "AccessMate",
+    "full": "AccessMate - Identity Access Bot"
+  },
+  "description": {
+    "short": "Request and manage access to enterprise resources",
+    "full": "AccessMate helps you request access to AWS, databases, applications, and more through Teams. Submit requests, track approvals, and receive notifications—all in one place."
+  },
+  "icons": {
+    "outline": "outline_icon.png",
+    "color": "color_icon.png"
+  },
+  "accentColor": "#004578",
+  "bots": [
+    {
+      "botId": "REPLACE_WITH_YOUR_TEAMS_APP_ID",
+      "scopes": [
+        "personal",
+        "team",
+        "groupChat"
+      ],
+      "commandLists": [
+        {
+          "scopes": [
+            "personal",
+            "team",
+            "groupChat"
+          ],
+          "commands": [
+            {
+              "title": "Request Access",
+              "description": "Request access to a resource, system, or application"
+            },
+            {
+              "title": "My Requests",
+              "description": "View your pending and completed access requests"
+            },
+            {
+              "title": "My Approvals",
+              "description": "View pending approvals (for managers)"
+            },
+            {
+              "title": "Help",
+              "description": "Show help and available commands"
+            }
+          ]
+        }
+      ],
+      "isNotificationOnly": false,
+      "supportsFiles": false,
+      "supportsCalling": false,
+      "supportsVideo": false
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "REPLACE_WITH_YOUR_BOT_DOMAIN"
+  ]
+}

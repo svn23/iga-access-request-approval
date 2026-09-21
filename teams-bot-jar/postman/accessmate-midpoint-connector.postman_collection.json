@@ -1,0 +1,277 @@
+{
+  "info": {
+    "_postman_id": "4c9fd6d1-43af-43d5-9de1-2ea37b363469",
+    "name": "AccessMate MidPoint Connector API",
+    "description": "Tests the standalone connector JAR. Set collection variables before sending requests. Do not store real tokens or passwords in this file.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "connectorBaseUrl", "value": "http://127.0.0.1:8088" },
+    { "key": "connectorToken", "value": "REPLACE_WITH_BOT_CONNECTOR_API_TOKEN" },
+    { "key": "requesterEmail", "value": "user@example.com" },
+    { "key": "requesterMidpointOid", "value": "" },
+    { "key": "requesterEmailPath", "value": "user%40example.com" },
+    { "key": "targetType", "value": "resource" },
+    { "key": "targetName", "value": "MidPoint" },
+    { "key": "role", "value": "REPLACE_WITH_A_ROLE_FROM_CATALOG" },
+    { "key": "temporaryAccessUntil", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Read synchronized access catalog",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{connectorBaseUrl}}/api/v1/access-catalog"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('returns HTTP 200', () => pm.response.to.have.status(200));",
+        "pm.test('contains catalog items', () => pm.expect(pm.response.json().items).to.be.an('array'));"
+      ]}}]
+    },
+    {
+      "name": "2. Provision permanent approved access",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"requester\": {\n    \"midpointUserOid\": \"{{requesterMidpointOid}}\",\n    \"email\": \"{{requesterEmail}}\"\n  },\n  \"provisioning\": {\n    \"targetType\": \"{{targetType}}\",\n    \"targetName\": \"{{targetName}}\",\n    \"role\": \"{{role}}\"\n  },\n  \"approval\": {}\n}" },
+        "url": "{{connectorBaseUrl}}/api/v1/provisioning"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.variables.set('transactionId', pm.variables.replaceIn('tx-{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns accepted result', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]));",
+              "pm.test('echoes transactionId', () => pm.expect(pm.response.json().transactionId).to.eql(pm.variables.get('transactionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Provision temporary approved access (within 30 days)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"requester\": {\n    \"midpointUserOid\": \"{{requesterMidpointOid}}\",\n    \"email\": \"{{requesterEmail}}\"\n  },\n  \"provisioning\": {\n    \"targetType\": \"{{targetType}}\",\n    \"targetName\": \"{{targetName}}\",\n    \"role\": \"{{role}}\"\n  },\n  \"approval\": {\n    \"accessUntil\": \"{{temporaryAccessUntil}}\"\n  }\n}" },
+        "url": "{{connectorBaseUrl}}/api/v1/provisioning"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.variables.set('transactionId', pm.variables.replaceIn('tx-{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns accepted result', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]));",
+              "pm.test('echoes transactionId', () => pm.expect(pm.response.json().transactionId).to.eql(pm.variables.get('transactionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Revoke approved access",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"midpointUserOid\": \"{{requesterMidpointOid}}\",\n  \"email\": \"{{requesterEmail}}\",\n  \"targetName\": \"{{targetName}}\"\n}" },
+        "url": "{{connectorBaseUrl}}/api/v1/revocations"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.variables.set('transactionId', pm.variables.replaceIn('tx-{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns accepted result', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]));",
+              "pm.test('echoes transactionId', () => pm.expect(pm.response.json().transactionId).to.eql(pm.variables.get('transactionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Check request status by email",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": "{{connectorBaseUrl}}/api/requests/{{requesterEmailPath}}/status"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('returns requests array', () => pm.expect(pm.response.json().requests).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Prepare notification",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"recipientEmail\": \"{{requesterEmail}}\",\n  \"audience\": \"manager\",\n  \"subject\": \"Access request update\",\n  \"message\": \"Your request has been updated.\"\n}" },
+        "url": "{{connectorBaseUrl}}/api/notifications/send"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.variables.set('transactionId', pm.variables.replaceIn('tx-{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns accepted result', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]));",
+              "pm.test('echoes transactionId', () => pm.expect(pm.response.json().transactionId).to.eql(pm.variables.get('transactionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Approve by requester email",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"midpointUserOid\": \"{{requesterMidpointOid}}\",\n  \"email\": \"{{requesterEmail}}\",\n  \"targetName\": \"{{targetName}}\",\n  \"targetType\": \"{{targetType}}\",\n  \"accessUntil\": \"{{temporaryAccessUntil}}\",\n  \"comment\": \"approved via postman\"\n}" },
+        "url": "{{connectorBaseUrl}}/api/v1/requests/{{requesterEmailPath}}/approve"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.variables.set('transactionId', pm.variables.replaceIn('tx-{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns accepted result', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]));",
+              "pm.test('echoes transactionId', () => pm.expect(pm.response.json().transactionId).to.eql(pm.variables.get('transactionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Reject by requester email",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"midpointUserOid\": \"{{requesterMidpointOid}}\",\n  \"email\": \"{{requesterEmail}}\",\n  \"targetName\": \"{{targetName}}\",\n  \"targetType\": \"{{targetType}}\",\n  \"comment\": \"rejected via postman\"\n}" },
+        "url": "{{connectorBaseUrl}}/api/v1/requests/{{requesterEmailPath}}/reject"
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.variables.set('transactionId', pm.variables.replaceIn('tx-{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns accepted result', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]));",
+              "pm.test('echoes transactionId', () => pm.expect(pm.response.json().transactionId).to.eql(pm.variables.get('transactionId')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Temporary access by requester email",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{connectorToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"midpointUserOid\": \"{{requesterMidpointOid}}\",\n  \"email\": \"{{requesterEmail}}\",\n  \"targetName\": \"{{targetName}}\",\n  \"targetType\": \"{{targetType}}\",\n  \"accessUntil\": \"{{temporaryAccessUntil}}\",\n  \"comment\": \"temporary access via postman\"\n}" },
+        "url": "{{connectorBaseUrl}}/api/v1/requests/{{requesterEmailPath}}/temporary-access"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('returns accepted result', () => pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Security - reject missing bearer token",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{connectorBaseUrl}}/api/v1/access-catalog"
+      },
+      "event": [{ "listen": "test", "script": { "exec": [
+        "pm.test('returns HTTP 401', () => pm.response.to.have.status(401));"
+      ]}}]
+    }
+  ]
+}

@@ -1,0 +1,152 @@
+<!--
+  ============================================================================
+  midPoint 4.10.3 — EVERYTHING to add on the midPoint side for the
+  midPoint-driven Teams approval flow. Three pieces, all inside systemConfiguration
+  (oid 00000000-0000-0000-0000-000000000001):
+
+    1) messageTransportConfiguration  → the "webhook": Groovy HTTP POST to the JAR /notify
+    2) notificationConfiguration      → two notifiers that build the JSON payloads
+    3) globalPolicyRule               → routes role-assignment approval to the LINE MANAGER
+                                        (WITHOUT this, midPoint auto-REJECTS: no approver → reject)
+
+  APPLY (safest): GUI → Configuration → Repository objects → SystemConfiguration → edit XML →
+  merge these blocks into the existing <systemConfiguration>. Do NOT replace the whole object.
+
+  MUST MATCH THE JAR:
+    endpoint  = http://localhost:8088/notify           (NotifyController @PostMapping("/notify"))
+    X-Api-Key = b4f9017c8e2a45d3906fbc71e5a8d240c37e19af62b04d8e5a1c9736fe08b512   (connector.notify_token)
+
+  4.10.3 binding variables used: requestee, event, workItem, aCase, midpoint. If midPoint rejects a
+  field on save, that name differs on your build — send the error and adjust; shapes stay the same.
+  ============================================================================
+-->
+
+<!-- ========================= 1) TRANSPORT (the webhook) ========================= -->
+<messageTransportConfiguration>
+    <customTransport>
+        <name>teamsMiddleware</name>
+        <expression>
+            <script>
+                <code>
+                    import java.net.http.*
+                    import java.net.URI
+                    def endpoint = 'http://localhost:8088/notify'
+                    def apiKey   = 'b4f9017c8e2a45d3906fbc71e5a8d240c37e19af62b04d8e5a1c9736fe08b512'
+                    try {
+                        def client = HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(5)).build()
+                        def req = HttpRequest.newBuilder()
+                            .uri(URI.create(endpoint))
+                            .header('Content-Type', 'application/json')
+                            .header('X-Api-Key', apiKey)
+                            .timeout(java.time.Duration.ofSeconds(10))
+                            .POST(HttpRequest.BodyPublishers.ofString(message.getBody()))
+                            .build()
+                        def resp = client.send(req, HttpResponse.BodyHandlers.ofString())
+                        log.info('teamsMiddleware POST status={} body={}', resp.statusCode(), resp.body())
+                    } catch (Exception e) {
+                        log.error('teamsMiddleware POST failed: {}', e.getMessage())  // never block identity ops
+                    }
+                </code>
+            </script>
+        </expression>
+    </customTransport>
+</messageTransportConfiguration>
+
+<!-- ========================= 2) NOTIFIERS ========================= -->
+<notificationConfiguration>
+
+    <!-- (a) Request raised → notify the line manager -->
+    <handler>
+        <simpleWorkItemNotifier>
+            <workItemLifecycleEvent>
+                <operationKind>add</operationKind>
+            </workItemLifecycleEvent>
+            <recipientExpression>
+                <script><code>
+                    def m = midpoint.getManagersOids(requestee)
+                    if (!m) return null
+                    return midpoint.getObject(com.evolveum.midpoint.xml.ns._public.common.common_3.UserType.class, m.iterator().next())?.getEmailAddress()
+                </code></script>
+            </recipientExpression>
+            <bodyExpression>
+                <script><code>
+                    import groovy.json.JsonOutput
+                    def caseObj = workItem?.getParent()
+                    def mgrEmail = null
+                    def m = midpoint.getManagersOids(requestee)
+                    if (m) mgrEmail = midpoint.getObject(com.evolveum.midpoint.xml.ns._public.common.common_3.UserType.class, m.iterator().next())?.getEmailAddress()
+                    return JsonOutput.toJson([
+                        event         : 'ACCESS_REQUEST_RAISED',
+                        caseOid       : caseObj?.getOid(),
+                        workItemId    : workItem?.getId(),
+                        stageNumber   : workItem?.getStageNumber(),
+                        requesterEmail: requestee?.getEmailAddress(),
+                        requesterName : requestee?.getFullName()?.getOrig(),
+                        managerEmail  : mgrEmail,
+                        requestedItem : caseObj?.getTargetRef()?.getTargetName()?.getOrig(),
+                        status        : 'PENDING_APPROVAL'
+                    ])
+                </code></script>
+            </bodyExpression>
+            <transport>teamsMiddleware</transport>
+        </simpleWorkItemNotifier>
+    </handler>
+
+    <!-- (b) Approved / rejected (process end) → notify the requester -->
+    <handler>
+        <simpleWorkflowNotifier>
+            <recipientExpression>
+                <script><code>return requestee?.getEmailAddress()</code></script>
+            </recipientExpression>
+            <bodyExpression>
+                <script><code>
+                    import groovy.json.JsonOutput
+                    return JsonOutput.toJson([
+                        event         : 'ACCESS_REQUEST_COMPLETED',
+                        caseOid       : aCase?.getOid(),
+                        requesterEmail: requestee?.getEmailAddress(),
+                        requesterName : requestee?.getFullName()?.getOrig(),
+                        requestedItem : aCase?.getTargetRef()?.getTargetName()?.getOrig(),
+                        status        : event.isApproved() ? 'GRANTED' : 'REJECTED'
+                    ])
+                </code></script>
+            </bodyExpression>
+            <transport>teamsMiddleware</transport>
+        </simpleWorkflowNotifier>
+    </handler>
+
+</notificationConfiguration>
+
+<!-- ========================= 3) MANAGER-APPROVAL POLICY =========================
+     Without this, role-assignment approvals have NO approver and midPoint auto-REJECTS.
+     This routes every role-assignment (add) to the requester's line manager (org:manager),
+     creating an OPEN work item assigned to them (which is what fires notifier (a)).
+     If your instance already has a different approval policy that auto-rejects, remove/replace it. -->
+<globalPolicyRule>
+    <name>role-assignment-line-manager-approval</name>
+    <policyConstraints>
+        <assignment>
+            <operation>add</operation>
+        </assignment>
+    </policyConstraints>
+    <policyActions>
+        <approval>
+            <approvalSchema>
+                <stage>
+                    <name>Line manager approval</name>
+                    <approverRelation>org:manager</approverRelation>
+                    <outcomeIfNoApprovers>reject</outcomeIfNoApprovers>
+                    <groupExpansion>onWorkItemCreation</groupExpansion>
+                </stage>
+            </approvalSchema>
+        </approval>
+    </policyActions>
+    <focusSelector>
+        <type>UserType</type>
+    </focusSelector>
+    <evaluationTarget>assignment</evaluationTarget>
+    <!-- Scope to requestable role assignments only, so ordinary attribute changes don't trigger approval. -->
+    <assignmentSelector>
+        <targetType>RoleType</targetType>
+    </assignmentSelector>
+</globalPolicyRule>

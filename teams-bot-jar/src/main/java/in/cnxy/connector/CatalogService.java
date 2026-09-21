@@ -1,0 +1,6 @@
+package in.cnxy.connector;
+import org.springframework.scheduling.annotation.Scheduled; import org.springframework.stereotype.Service; import org.slf4j.Logger; import org.slf4j.LoggerFactory; import java.time.*; import java.util.*;
+@Service class CatalogService { private static final Logger log=LoggerFactory.getLogger(CatalogService.class); private final MidpointClient client; private volatile List<CatalogItem> cached=List.of(); private volatile Instant syncedAt=Instant.EPOCH; CatalogService(MidpointClient c){client=c;}
+ @Scheduled(initialDelay=0,fixedDelayString="#{@connectorProperties.catalogSyncMinutes() * 60000}") public synchronized void sync(){try{List<CatalogItem> next=client.catalog(); if(!next.isEmpty()){cached=List.copyOf(next);syncedAt=Instant.now();}}catch(RuntimeException e){log.warn("MidPoint catalog sync failed; retaining last known catalog and retrying on the next interval: {}",e.getMessage());}}
+ Map<String,Object> response(){var roles=cached.stream().map(CatalogItem::role).distinct().sorted().toList(); return Map.of("items",List.of(Map.of("system","MidPoint","roles",roles,"risk","medium")),"syncedAt",syncedAt.toString(),"source","midPoint");}
+ CatalogItem findByName(String name){return cached.stream().filter(x->x.role().equals(name)).findFirst().orElseThrow(()->new IllegalArgumentException("Role is not in the synchronized catalog"));}}

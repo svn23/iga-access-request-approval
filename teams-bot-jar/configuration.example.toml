@@ -1,0 +1,21 @@
+# AccessMate MidPoint Connector — configuration template.
+# Copy to configuration.toml and fill in real values. configuration.toml is gitignored.
+# Path override: set CONNECTOR_CONFIG_FILE env var; default is ./configuration.toml.
+
+[midpoint]
+base_url = "https://your-midpoint-host:8443/midpoint"
+username = "your-service-account"
+password = "REPLACE_ME"
+
+[connector]
+api_token = "REPLACE_WITH_32PLUS_CHAR_RANDOM_SECRET"
+notify_token = "REPLACE_WITH_32PLUS_CHAR_RANDOM_SECRET"
+catalog_sync_minutes = 30
+connect_timeout_seconds = 5
+# Per-client (per source IP) request cap, fixed token bucket. 0 disables. Default 120/min.
+# Sheds bursts / runaway callers before they reach midPoint. Single-instance (see P10 for shared).
+rate_limit_per_minute = 120
+
+[bot]
+notify_url = "http://localhost:8000/api/notify"
+notify_token = "REPLACE_WITH_BOT_MIDPOINT_API_TOKEN"

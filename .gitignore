@@ -1,1 +1,33 @@
+# ── Secrets (NEVER commit) ─────────────────────────────
+**/.env
+**/.env.*
+!**/.env.example
+**/configuration.toml
+*.pem
+*.key
+
+# ── Java / Maven ───────────────────────────────────────
+teams-bot-jar/target/
+*.class
+
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ── Local data / logs ──────────────────────────────────
+*.sqlite3
+*.db
+*.log
+teams-bot/data/
+
+# ── OS / IDE ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
 CLAUDE.md

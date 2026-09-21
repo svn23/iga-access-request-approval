@@ -1,0 +1,19 @@
+server:
+  port: ${PORT:8088}
+  # Configure server.ssl.* in production. Deploy behind a TLS-terminating proxy only if it is private.
+connector:
+  api-token: ${BOT_CONNECTOR_API_TOKEN:}
+  midpoint-base-url: ${MIDPOINT_BASE_URL:}
+  midpoint-username: ${MIDPOINT_USERNAME:}
+  midpoint-password: ${MIDPOINT_PASSWORD:}
+  catalog-sync-minutes: ${CATALOG_SYNC_MINUTES:30}
+  catalog-sync-delay-ms: ${CATALOG_SYNC_DELAY_MS:1800000}
+  connect-timeout-seconds: ${MIDPOINT_CONNECT_TIMEOUT_SECONDS:5}
+  # Inbound midPoint -> JAR notifications (POST /notify), and JAR -> Teams bot forwarding.
+  # NOTE: like the other keys here, these are currently inert — LocalConnectorConfiguration is the live source (see DEV.md §3).
+  midpoint-notify-token: ${MIDPOINT_NOTIFY_TOKEN:}
+  bot-notify-url: ${BOT_NOTIFY_URL:http://localhost:8000/api/notify}
+  bot-notify-token: ${BOT_NOTIFY_TOKEN:}
+spring:
+  jackson:
+    default-property-inclusion: non_null
